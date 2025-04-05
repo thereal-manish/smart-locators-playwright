@@ -15,7 +15,7 @@ setup(
     url='https://github.com/thereal-manish/smart-locators-playwright/', 
     classifiers=[
         'Programming Language :: Python :: 3',
-        'License :: None',
+        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
     ],
     python_requires='>=3'
