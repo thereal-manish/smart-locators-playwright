@@ -5,7 +5,7 @@ from playwright.async_api._generated import Page as async_page
 
 
 class SmartLocators:
-    def __init__(self, page:sync_page | async_page):
+    def __init__(self, page:sync_page or async_page):
         """Initializes an instance of the Smart Locators class.
 
         Args:

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='smart-locators-playwright', 
-    version='1.0.0',              
+    version='1.0.0a',              
     packages=find_packages(),     
     install_requires=[
         'playwright',

@@ -1,15 +1,16 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: smart-locators-playwright
-Version: 1.0.0
+Version: 1.0.0a0
 Summary: A simplified Python-playwright utility that provides more flexible locator strategies which is easier for users.
 Home-page: https://github.com/thereal-manish/smart-locators-playwright/
 Author: Manikandan Baskaran
 Author-email: manikandan.baskaran.15@gmail.com
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: None
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: playwright
 Dynamic: author
 Dynamic: author-email

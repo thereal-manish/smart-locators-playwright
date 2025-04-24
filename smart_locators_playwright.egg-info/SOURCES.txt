@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 smart_locators_playwright/__init__.py
