@@ -2,6 +2,7 @@ from playwright.sync_api._generated import Locator
 from smart_locators_playwright import custom_exceptions
 from playwright.sync_api._generated import Page as sync_page
 from playwright.async_api._generated import Page as async_page
+import logging
 
 
 class SmartLocators:
@@ -14,9 +15,10 @@ class SmartLocators:
         self._page=page
         self._playwright_allowed_locators=["alt","label","placeholder","role","text","title"]
         self._custom_locators=["css","xpath"]
+        self._locators_file = "C:/SmartLocatorsLogs/"
     
        
-    def find(self,id:str=None, name:str=None, css:str=None, xpath:str=None, label:str=None, alt:str=None, placeholder:str=None, role:str=None, text:str=None, title:str=None,first_match:bool=True,**kwargs)->Locator:
+    def find(self,id:str=None, name:str=None, css:str=None, xpath:str=None, label:str=None, alt:str=None, placeholder:str=None, role:str=None, text:str=None, title:str=None,first_match:bool=True,element_name:str="",locator_update:bool=False,locators_file:str=self._locators_file,**kwargs)->Locator:
         """Finds the web element using provided locators. Tries locators in order until one succeeds.
 
         Args:
@@ -43,15 +45,16 @@ class SmartLocators:
         _locator_strategies_default={"id":id,"name":name,"css":css,"xpath":xpath,"label":label,"alt":alt,"placeholder":placeholder,"role":role,"text":text,"title":title}
         _locator_strategies={**_locator_strategies_default,**kwargs}
         _non_empty_locators={key:value for key,value in _locator_strategies.items() if value not in (None,"")}
-        # self.__find_element_internal(_non_empty_locators)
         self.__reformat_locator(_non_empty_locators)
         _playwright_method_mappings={key:f'_get_by_{key}' for key,value in _non_empty_locators.items() if key.lower() in self._playwright_allowed_locators}
-        # self.__find_element_internal(locators=_non_empty_locators,mappings=_playwright_method_mappings)
         _custom_method_mappings={key:f'_get_by_locator' for key,value in _non_empty_locators.items() if key.lower() not in self._playwright_allowed_locators}
         
         _locator_mappings={**_playwright_method_mappings,**_custom_method_mappings}
         ele=self.__find_element_internal(locators=_non_empty_locators,mappings=_locator_mappings)
         if ele:
+            if locator_update:
+                update_status = self.update_locators(element_name,ele.nth(0),locators_file)
+                logging.info(f"Locator entry is updated for {element_name} in {locators_file} file. Refer the file for details")
             return ele.nth(0) if first_match else ele
         else:
             raise custom_exceptions.NoSuchElementException
@@ -96,14 +99,9 @@ class SmartLocators:
         """
         for key,value in locators.items():
             if key.lower() not in self._playwright_allowed_locators and key.lower() not in self._custom_locators:
+                if key.lower()=="element_name" or key.lower()=="locators_file":
+                    continue
                 locators[key]=(f"//*[@{key}='{value}']")
-                
-    def _get_by_role(self,locator):
-        try:
-            ele=self._page.get_by_role(locator)
-            return ele if ele.count()>0 else False
-        except Exception as e:
-            return False
     
     def _get_by_role(self,locator):
         try:
@@ -152,4 +150,43 @@ class SmartLocators:
             ele=self._page.locator(locator)
             return ele if ele.count()>0 else False
         except Exception as e:
+            return False
+
+    def update_locators(self,element_name:str="",webelement:Locator=None,locators_file:str=self._locators_file)->bool:
+        if webelement!="":
+            outerHTML=webelement.evaluate("el => el.outerHTML")
+            attributes=self.extract_html_attributes(outerHTML)
+            status:bool=self.write_locators_to_json(element_name,attributes,locators_file)
+            return status
+        else:
+            logging.debug("Supplied locator is empty, skipping locator collection...")
+            return False
+
+    def extract_html_attributes(html_string: str) -> dict:
+        pattern = r'(\w+(?:-\w+)*)\s*=\s*"([^"]*)"'  
+        matches = re.findall(pattern, html_string)
+        attributes_dict = {key: value for key, value in matches}
+        return attributes_dict
+
+    def write_locators_to_json(self,element_name:str,attributes:dict,locators_file:str="")->bool:
+        try:
+            if not element_name or element_name.strip() == "" or not attributes or not isinstance(attributes, dict):
+                logging.debug(f"Inputs are not given properly for {element_name}, kindly check...")
+                return False
+            file_path = Path(locators_file)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            if file_path.exists():
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    locators_data = json.load(f)
+                    logging.debug(f"Loaded existing locators from: {locators_file}")
+            else:
+                locators_data = {}
+                logging.debug(f"Created new locators file: {locators_file}")
+            locators_data[element_name] = attributes
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(locators_data, f, indent=2, ensure_ascii=False)
+            logging.debug(f"Updated locator entry for '{element_name}' with {len(attributes)} attributes")
+            return True      
+        except Exception as e:
+            logging.debug(f"Failed to write locators - {str(e)}")
             return False
