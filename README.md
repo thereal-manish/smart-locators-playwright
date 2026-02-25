@@ -1,6 +1,6 @@
 # 🔍 smart-locators-playwright
 
-**A smart, resilient way to locate elements in Playwright for Python — reduce flakiness, simplify locators, and write cleaner test code.**
+**A smart, resilient way to locate elements in Playwright for Python — reduce flakiness, simplify locators, and write cleaner test code. - Now with self-healing capabilities**
 
 [![PyPI version](https://badge.fury.io/py/smart-locators-playwright.svg)](https://pypi.org/project/smart-locators-playwright/)
 
@@ -9,12 +9,14 @@
 `smart-locators-playwright` is a utility wrapper around Playwright’s native locator system. It allows you to define **multiple locator strategies at once**, and it will **automatically try each until one succeeds** — no more writing fallback logic or suffering flaky tests due to minor DOM changes.
 
 ## Why Smart Locators?
-Element location is often the most brittle part of web automation. Smart Locators provides:
 
-- A unified API for all types of locators
-- Automatic fallback between multiple location strategies
-- Support for custom attributes alongside Playwright's built-in locators
-- Reduced test maintenance when UI changes occur
+Element location is often the most brittle part of web automation. Web UIs change frequently, and a single broken locator can cascade failures across your entire test suite. Smart Locators solves this by providing:
+
+- **Unified API**: One simple `find()` method instead of chaining multiple Playwright methods
+- **Automatic Fallback Strategy**: Tries multiple locators in sequence until one succeeds — your tests survive minor DOM changes
+- **Custom Attribute Support**: Locate elements by any HTML attribute (data attributes, custom attributes, etc.) automatically converted to XPath
+- **Reduced Maintenance**: When UI changes occur, your tests can still pass using fallback locators instead of requiring immediate refactoring
+- **Both Sync & Async Support**: Works seamlessly with both `playwright.sync_api` and `playwright.async_api`
 ## Installation
 
 Install smart-locators-playwright with pip
@@ -28,11 +30,21 @@ Install smart-locators-playwright with pip
 
 ### 1. 🔗 Unified Element Location API
 
-Use a single, intuitive `find()` method instead of chaining multiple Playwright locators like `page.get_by_role()`, `page.get_by_text()`, etc.
+Instead of writing multiple locator calls and chaining methods:
 
 ```python
+# Traditional Playwright approach (brittle)
+element = page.get_by_role("button", name="Submit")
+```
+
+Use a single, intuitive `find()` method that accepts multiple strategies:
+
+```python
+# Smart Locators approach (resilient)
 element = smart.find(id="submit", text="Submit", role="button")
 ```
+
+This is cleaner, more readable, and handles all the fallback logic internally.
 
 ---
 
@@ -57,35 +69,79 @@ The `find()` method supports all standard Playwright locators, plus custom strat
 
 ---
 
-### 3. 🔄 Automatic Fallback
+### 3. 🔄 Automatic Fallback Strategy
 
-If a locator fails, the utility tries the next one in the order provided — making your tests resilient to minor UI changes.
+Locators are tried sequentially until one succeeds. This makes your tests **resilient to DOM changes** without requiring test refactoring:
 
 ```python
+# Will try: id → name → text (in that order)
 element = smart.find(id="loginBtn", name="submitLogin", text="Login")
 ```
+
+If the element's `id` changes or is removed, the library automatically falls back to the `name` attribute, then the text content. Your test remains stable despite UI modifications.
 
 ---
 
 ### 4. 👥 Support for Multiple Elements
 
-Need to fetch all matching elements instead of just the first? Simply set `first_match=False`.
+By default, `find()` returns the first matching element. Set `first_match=False` to retrieve all matching elements:
 
 ```python
-# Get all matching buttons
-all_buttons = smart.find(
-    role="button",
-    first_match=False
-)
+# Get the first matching button (default)
+button = smart.find(role="button", first_match=True)
+button.click()
+
+# Get all matching buttons as a Locator collection
+all_buttons = smart.find(role="button", first_match=False)
 
 # Iterate through all buttons
-for button in all_buttons:
+for button in all_buttons.all():
     print(button.text_content())
 ```
 
 ---
 
+### 5. 🔧 Self-Healing Locators
 
+Smart Locators can automatically **extract and store element attributes** after finding them. This enables a self-healing mechanism where you can maintain a centralized locator repository and easily update locators when your application changes.
+
+```python
+# Enable self-healing: automatically save element attributes to a JSON file
+element = smart.find(
+    id="submit-btn",
+    name="submit",
+    text="Submit",
+    first_match=True,
+    locator_update=True,  # Enable locator extraction
+    element_name="submit_button",  # Name for the locator entry
+    locators_file="./locators/app_locators.json"  # Where to save the locators
+)
+
+element.click()
+```
+
+When `locator_update=True`, the found element's HTML attributes are automatically extracted and saved to the specified JSON file. This creates a reusable locator repository that can be updated over time, reducing maintenance overhead when your application's UI evolves.
+
+**Generated JSON file example:**
+```json
+{
+  "submit_button": {
+    "id": "submit-btn",
+    "class": "btn btn-primary",
+    "type": "button",
+    "data-testid": "submit-button",
+    "aria-label": "Submit form"
+  }
+}
+```
+
+This feature is particularly useful for:
+- Maintaining a centralized locator library
+- Documenting all available attributes for each element
+- Making updates quick and painless when the UI changes
+- Sharing locators across multiple test files
+
+---
 
 ## Usage/Examples
 
@@ -180,26 +236,54 @@ for row in rows.all():
 
 ## 📚 API Reference
 
-#### `SmartLocators(page)`
+### `SmartLocators(page)`
 
-Initializes the Smart Locators class.
+Initializes the Smart Locators instance.
 
-### Parameters:
-- `page` (playwright.sync_api.Page or playwright.async_api.Page): The Playwright page instance.
+#### Parameters:
+- `page` (playwright.sync_api.Page | playwright.async_api.Page): The Playwright page object. Supports both synchronous and asynchronous page instances.
+
+#### Example:
+```python
+from playwright.sync_api import sync_playwright
+from smart_locators_playwright import SmartLocators
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    smart = SmartLocators(page)  # Initialize Smart Locators
+```
 
 ---
 
-## `find(id=None, name=None, css=None, xpath=None, label=None, alt=None, placeholder=None, role=None, text=None, title=None, first_match=True, **kwargs)`
+### `find(id=None, name=None, css=None, xpath=None, label=None, alt=None, placeholder=None, role=None, text=None, title=None, first_match=True, **kwargs)`
 
-Finds web elements using provided locators, trying them in order until one succeeds.
+Locates web elements using one or more locator strategies, trying each in sequential order until a match is found.
 
-### Parameters:
-- **Standard locator parameters** (id, text, etc.)
-- `first_match` (bool): Return only the first match if `True`, all matches if `False`.
-- `**kwargs` (dict): Any additional attributes to locate by.
+#### Parameters:
 
-### Returns:
-- **Locator**: The found element(s).
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `id` | str | None | Element's `id` attribute |
+| `name` | str | None | Element's `name` attribute |
+| `css` | str | None | CSS selector expression |
+| `xpath` | str | None | XPath expression |
+| `label` | str | None | Associated label text |
+| `alt` | str | None | Alt text (images, media) |
+| `placeholder` | str | None | Input placeholder text |
+| `role` | str | None | ARIA role (button, textbox, etc.) |
+| `text` | str | None | Element text content |
+| `title` | str | None | Element title attribute |
+| `first_match` | bool | True | If `True`, returns the first match; if `False`, returns all matches as a Locator collection |
+| `locator_update` | bool | False | **[Self-Healing]** If `True`, automatically extracts and saves element attributes to a JSON file |
+| `element_name` | str | "" | **[Self-Healing]** Name/key for the locator entry in the JSON file (required when `locator_update=True`) |
+| `locators_file` | str | "C:/SmartLocatorsLogs/" | **[Self-Healing]** Path to the JSON file where locator attributes will be saved |
+| `**kwargs` | dict | {} | Any custom HTML attributes (auto-converted to XPath) |
 
-### Raises:
-- **NoSuchElementException**: If no element is found.
+#### Returns:
+- **Locator**: A Playwright Locator object representing the found element(s).
+  - When `first_match=True`: Returns a single element Locator
+  - When `first_match=False`: Returns a Locator collection that can be iterated with `.all()`
+
+#### Raises:
+- **NoSuchElementException**: If no element matches any of the provided locators.
