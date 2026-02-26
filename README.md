@@ -257,7 +257,7 @@ with sync_playwright() as p:
 
 ---
 
-### `find(id=None, name=None, css=None, xpath=None, label=None, alt=None, placeholder=None, role=None, text=None, title=None, first_match=True, **kwargs)`
+### `find(id=None, name=None, css=None, xpath=None, label=None, alt=None, placeholder=None, role=None, text=None, title=None, first_match=True, locator_update=True, element_name="submit_button", locators_file="./locators/app_locators.json"**kwargs)`
 
 Locates web elements using one or more locator strategies, trying each in sequential order until a match is found.
 
