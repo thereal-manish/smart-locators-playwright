@@ -34,7 +34,8 @@ Instead of writing multiple locator calls and chaining methods:
 
 ```python
 # Traditional Playwright approach (brittle)
-element = page.get_by_role("button", name="Submit")
+element = page.get_by_role("button") ## Find an element by role
+element_2 = page.locator("//button[@id='submit_btn']") ## Find an element using xpath
 ```
 
 Use a single, intuitive `find()` method that accepts multiple strategies:
