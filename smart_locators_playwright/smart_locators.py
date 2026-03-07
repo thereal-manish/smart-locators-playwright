@@ -2,8 +2,8 @@ from playwright.sync_api._generated import Locator
 from smart_locators_playwright import custom_exceptions
 from playwright.sync_api._generated import Page as sync_page
 from playwright.async_api._generated import Page as async_page
-import logging
-
+import logging,re,os,json
+from pathlib import Path
 
 class SmartLocators:
     def __init__(self, page:sync_page or async_page):
@@ -15,10 +15,11 @@ class SmartLocators:
         self._page=page
         self._playwright_allowed_locators=["alt","label","placeholder","role","text","title"]
         self._custom_locators=["css","xpath"]
-        self._locators_file = "C:/SmartLocatorsLogs/"
+        self._cwd = os.getcwd()
+        self._locators_file = f"{self._cwd}/SmartLocatorsLogs/default.json"
     
        
-    def find(self,id:str=None, name:str=None, css:str=None, xpath:str=None, label:str=None, alt:str=None, placeholder:str=None, role:str=None, text:str=None, title:str=None,first_match:bool=True,element_name:str="",locator_update:bool=False,locators_file:str=self._locators_file,**kwargs)->Locator:
+    def find(self,id:str=None, name:str=None, css:str=None, xpath:str=None, label:str=None, alt:str=None, placeholder:str=None, role:str=None, text:str=None, title:str=None,first_match:bool=True,element_name:str="",locator_update:bool=False,locators_file:str="",**kwargs)->Locator:
         """Finds the web element using provided locators. Tries locators in order until one succeeds.
 
         Args:
@@ -53,6 +54,7 @@ class SmartLocators:
         ele=self.__find_element_internal(locators=_non_empty_locators,mappings=_locator_mappings)
         if ele:
             if locator_update:
+                locators_file = self._locators_file if locators_file=="" else locators_file
                 update_status = self.update_locators(element_name,ele.nth(0),locators_file)
                 logging.info(f"Locator entry is updated for {element_name} in {locators_file} file. Refer the file for details")
             return ele.nth(0) if first_match else ele
@@ -152,7 +154,8 @@ class SmartLocators:
         except Exception as e:
             return False
 
-    def update_locators(self,element_name:str="",webelement:Locator=None,locators_file:str=self._locators_file)->bool:
+    def update_locators(self,element_name:str="",webelement:Locator=None,locators_file:str="")->bool:
+        locators_file = self._locators_file if locators_file=="" else locators_file
         if webelement!="":
             outerHTML=webelement.evaluate("el => el.outerHTML")
             attributes=self.extract_html_attributes(outerHTML)
@@ -162,31 +165,39 @@ class SmartLocators:
             logging.debug("Supplied locator is empty, skipping locator collection...")
             return False
 
-    def extract_html_attributes(html_string: str) -> dict:
-        pattern = r'(\w+(?:-\w+)*)\s*=\s*"([^"]*)"'  
+    def extract_html_attributes(self,html_string: str) -> dict:
+        pattern = r'(\w+(?:-\w+)*)\s*=\s*"([^"]*)"'
         matches = re.findall(pattern, html_string)
         attributes_dict = {key: value for key, value in matches}
         return attributes_dict
 
-    def write_locators_to_json(self,element_name:str,attributes:dict,locators_file:str="")->bool:
+    def write_locators_to_json(self, element_name: str, attributes: dict, locators_file: str) -> bool:
         try:
-            if not element_name or element_name.strip() == "" or not attributes or not isinstance(attributes, dict):
-                logging.debug(f"Inputs are not given properly for {element_name}, kindly check...")
+            # validate inputs
+            if not element_name or not element_name.strip():
+                logging.debug("Element name not provided")
+                return False
+            if not attributes or not isinstance(attributes, dict):
+                logging.debug(f"Invalid attributes for {element_name}")
                 return False
             file_path = Path(locators_file)
+            is_file=str(file_path).endswith(".json")
+            if not is_file:
+                file_path = f"{str(file_path)}/default.json"
+                file_path = Path(file_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             if file_path.exists():
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     locators_data = json.load(f)
-                    logging.debug(f"Loaded existing locators from: {locators_file}")
+                logging.debug(f"Loaded existing locators from {file_path}")
             else:
                 locators_data = {}
-                logging.debug(f"Created new locators file: {locators_file}")
+                logging.debug(f"Creating new locator file at {file_path}")
             locators_data[element_name] = attributes
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(locators_data, f, indent=2, ensure_ascii=False)
-            logging.debug(f"Updated locator entry for '{element_name}' with {len(attributes)} attributes")
-            return True      
+            logging.debug(f"Updated locator '{element_name}' with {len(attributes)} attributes")
+            return True
         except Exception as e:
-            logging.debug(f"Failed to write locators - {str(e)}")
+            logging.debug(f"Failed to write locators: {str(e)}")
             return False
