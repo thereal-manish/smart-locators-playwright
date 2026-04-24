@@ -193,7 +193,9 @@ class SmartLocators:
             else:
                 locators_data = {}
                 logging.debug(f"Creating new locator file at {file_path}")
-            locators_data[element_name] = attributes
+            # locators_data[element_name] = attributes
+            for attribute in attributes:
+                locators_data[element_name][attribute] = attributes.get(attribute)
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(locators_data, f, indent=2, ensure_ascii=False)
             logging.debug(f"Updated locator '{element_name}' with {len(attributes)} attributes")
