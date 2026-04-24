@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart-locators-playwright
-Version: 2.0.4
+Version: 2.1
 Summary: A simplified Python-playwright utility that provides more flexible locator strategies which is easier for users. Now with self-healing capabilities
 Home-page: https://github.com/thereal-manish/smart-locators-playwright/
 Author: Manikandan Baskaran
